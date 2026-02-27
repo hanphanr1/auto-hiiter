@@ -22,3 +22,4 @@ from functions.proxy_utils import (
     check_proxies_batch,
 )
 from functions.access import check_access, is_owner, is_authorized, add_user, remove_user, get_all_users
+from functions.bin_generator import detect_bin, generate_card_from_bin, generate_cards_from_bin

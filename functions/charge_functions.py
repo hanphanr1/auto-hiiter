@@ -118,12 +118,9 @@ async def charge_card(
 
                 if "error" in pm:
                     err_msg = pm["error"].get("message", "Card error")
-                    if "unsupported" in err_msg.lower() or "tokenization" in err_msg.lower():
-                        result["status"] = "NOT SUPPORTED"
-                        result["response"] = "Checkout not supported"
-                    else:
-                        result["status"] = "DECLINED"
-                        result["response"] = err_msg
+                    err_code = pm["error"].get("code", "")
+                    result["status"] = "DECLINED"
+                    result["response"] = err_msg
                     result["time"] = round(time.perf_counter() - start, 2)
                     return result
 

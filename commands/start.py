@@ -3,13 +3,14 @@ from aiogram.types import Message
 from aiogram.filters import Command
 from aiogram.enums import ParseMode
 
-from functions.access import check_access
+from functions.access import check_access, is_owner
 
 router = Router()
 
 ACCESS_DENIED = (
     "<blockquote><code>Access Denied</code></blockquote>\n\n"
-    "<blockquote>「❃」 Join to use : <code>@proscraperbot</code></blockquote>"
+    "<blockquote>「❃」 You are not authorized to use this bot\n"
+    "「❃」 Contact admin to get access</blockquote>"
 )
 
 
@@ -32,9 +33,17 @@ async def start_handler(msg: Message):
         "    • <code>/proxy check</code> - Check Proxies</blockquote>\n\n"
         "<blockquote>「❃」 Supported URLs\n"
         "    • <code>checkout.stripe.com</code>\n"
-        "    • <code>buy.stripe.com</code></blockquote>\n\n"
-        "<blockquote>「❃」 Contact : <code>@victus_xd</code></blockquote>"
+        "    • <code>buy.stripe.com</code></blockquote>"
     )
+
+    if is_owner(msg.from_user.id):
+        welcome += (
+            "\n\n<blockquote>「❃」 Admin\n"
+            "    • <code>/adduser user_id</code> - Authorize user\n"
+            "    • <code>/removeuser user_id</code> - Remove user\n"
+            "    • <code>/users</code> - List authorized users</blockquote>"
+        )
+
     await msg.answer(welcome, parse_mode=ParseMode.HTML)
 
 
@@ -63,4 +72,13 @@ async def help_handler(msg: Message):
         "    • <code>user:pass@host:port</code>\n"
         "    • <code>host:port</code></blockquote>"
     )
+
+    if is_owner(msg.from_user.id):
+        help_text += (
+            "\n\n<blockquote>「❃」 Admin Commands :\n"
+            "    • <code>/adduser user_id</code> - Authorize user\n"
+            "    • <code>/removeuser user_id</code> - Remove user\n"
+            "    • <code>/users</code> - List authorized users</blockquote>"
+        )
+
     await msg.answer(help_text, parse_mode=ParseMode.HTML)

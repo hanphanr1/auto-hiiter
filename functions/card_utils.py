@@ -4,35 +4,51 @@ CARD_PATTERN = re.compile(
     r'(\d{15,19})\s*[|:/\\\-\s]\s*(\d{1,2})\s*[|:/\\\-\s]\s*(\d{2,4})\s*[|:/\\\-\s]\s*(\d{3,4})'
 )
 
-def parse_card(line: str) -> dict:
-    line = line.strip()
-    if not line:
+
+def parse_card(text: str) -> dict:
+    text = text.strip()
+    if not text:
         return None
-    
-    match = CARD_PATTERN.search(line)
-    if not match:
-        return None
-    
-    cc, mm, yy, cvv = match.groups()
-    
+
+    parts = re.split(r'[|:/\\\-\s]+', text)
+    if len(parts) < 4:
+        match = CARD_PATTERN.search(text)
+        if not match:
+            return None
+        cc, mm, yy, cvv = match.groups()
+    else:
+        cc = re.sub(r'\D', '', parts[0])
+        if not (15 <= len(cc) <= 19):
+            return None
+        mm = parts[1].strip()
+        yy = parts[2].strip()
+        cvv = re.sub(r'\D', '', parts[3])
+
     mm = mm.zfill(2)
-    if int(mm) < 1 or int(mm) > 12:
+    if not (mm.isdigit() and 1 <= int(mm) <= 12):
         return None
-    
-    if len(yy) == 2:
-        yy = "20" + yy
-    if len(yy) != 4:
+
+    if len(yy) == 4:
+        yy = yy[2:]
+    if len(yy) != 2 or not yy.isdigit():
         return None
-    
-    return {"cc": cc, "mm": mm, "yy": yy, "cvv": cvv}
+
+    if not (3 <= len(cvv) <= 4):
+        return None
+
+    return {"cc": cc, "month": mm, "year": yy, "cvv": cvv}
+
 
 def parse_cards(text: str) -> list:
     cards = []
-    for line in text.strip().split("\n"):
-        card = parse_card(line)
-        if card:
-            cards.append(card)
+    for line in text.strip().split('\n'):
+        line = line.strip()
+        if line:
+            card = parse_card(line)
+            if card:
+                cards.append(card)
     return cards
 
+
 def format_card(card: dict) -> str:
-    return f"{card['cc']}|{card['mm']}|{card['yy']}|{card['cvv']}"
+    return f"{card['cc']}|{card['month']}|{card['year']}|{card['cvv']}"

@@ -3,57 +3,64 @@ from aiogram.types import Message
 from aiogram.filters import Command
 from aiogram.enums import ParseMode
 
+from functions.access import check_access
+
 router = Router()
 
-ALLOWED_GROUP = -1003459867774
-OWNER_ID = 8315528188
+ACCESS_DENIED = (
+    "<blockquote><code>Access Denied</code></blockquote>\n\n"
+    "<blockquote>「❃」 Join to use : <code>@proscraperbot</code></blockquote>"
+)
 
-def check_access(msg: Message) -> bool:
-    if msg.chat.id == ALLOWED_GROUP:
-        return True
-    if msg.chat.type == "private" and msg.from_user.id == OWNER_ID:
-        return True
-    return False
 
 @router.message(Command("start"))
 async def start_handler(msg: Message):
     if not check_access(msg):
-        await msg.answer(
-            "<blockquote><code>𝗔𝗰𝗰𝗲𝘀𝘀 𝗗𝗲𝗻𝗶𝗲𝗱 ❌</code></blockquote>\n\n"
-            "<blockquote>「❃」 𝗝𝗼𝗶𝗻 𝘁𝗼 𝘂𝘀𝗲 : <code>@proscraperbot</code></blockquote>",
-            parse_mode=ParseMode.HTML
-        )
+        await msg.answer(ACCESS_DENIED, parse_mode=ParseMode.HTML)
         return
-    
+
     welcome = (
-        "<blockquote><code>𝗩𝗶𝗰𝘁𝘂𝘀 𝗧𝗼𝗼𝗹𝘀 ⚡</code></blockquote>\n\n"
-        "<blockquote>「❃」 𝗖𝗵𝗲𝗰𝗸𝗼𝘂𝘁 𝗣𝗮𝗿𝘀𝗲𝗿\n"
+        "<blockquote><code>Victus Tools</code></blockquote>\n\n"
+        "<blockquote>「❃」 Checkout Parser\n"
         "    • <code>/co url</code> - Parse Stripe Checkout\n"
-        "    • <code>/co url cc|mm|yy|cvv</code> - Charge Card</blockquote>\n\n"
-        "<blockquote>「❃」 𝗦𝘂𝗽𝗽𝗼𝗿𝘁𝗲𝗱 𝗨𝗥𝗟𝘀\n"
+        "    • <code>/co url cc|mm|yy|cvv</code> - Charge Card\n"
+        "    • <code>/co url yes cc|mm|yy|cvv</code> - 3DS Bypass</blockquote>\n\n"
+        "<blockquote>「❃」 Proxy Manager\n"
+        "    • <code>/addproxy proxy</code> - Add Proxy\n"
+        "    • <code>/removeproxy proxy</code> - Remove Proxy\n"
+        "    • <code>/proxy</code> - View Proxies\n"
+        "    • <code>/proxy check</code> - Check Proxies</blockquote>\n\n"
+        "<blockquote>「❃」 Supported URLs\n"
         "    • <code>checkout.stripe.com</code>\n"
         "    • <code>buy.stripe.com</code></blockquote>\n\n"
-        "<blockquote>「❃」 𝗖𝗼𝗻𝘁𝗮𝗰𝘁 : <code>@victus_xd</code></blockquote>"
+        "<blockquote>「❃」 Contact : <code>@victus_xd</code></blockquote>"
     )
     await msg.answer(welcome, parse_mode=ParseMode.HTML)
+
 
 @router.message(Command("help"))
 async def help_handler(msg: Message):
     if not check_access(msg):
-        await msg.answer(
-            "<blockquote><code>𝗔𝗰𝗰𝗲𝘀𝘀 𝗗𝗲𝗻𝗶𝗲𝗱 ❌</code></blockquote>\n\n"
-            "<blockquote>「❃」 𝗝𝗼𝗶𝗻 𝘁𝗼 𝘂𝘀𝗲 : <code>@proscraperbot</code></blockquote>",
-            parse_mode=ParseMode.HTML
-        )
+        await msg.answer(ACCESS_DENIED, parse_mode=ParseMode.HTML)
         return
-    
+
     help_text = (
-        "<blockquote><code>𝗖𝗼𝗺𝗺𝗮𝗻𝗱𝘀 📋</code></blockquote>\n\n"
+        "<blockquote><code>Commands</code></blockquote>\n\n"
         "<blockquote>「❃」 <code>/start</code> - Show welcome message\n"
         "「❃」 <code>/help</code> - Show this help\n"
         "「❃」 <code>/co url</code> - Parse checkout info\n"
-        "「❃」 <code>/co url cards</code> - Charge cards</blockquote>\n\n"
-        "<blockquote>「❃」 𝗖𝗮𝗿𝗱 𝗙𝗼𝗿𝗺𝗮𝘁 : <code>cc|mm|yy|cvv</code>\n"
-        "「❃」 𝗘𝘅𝗮𝗺𝗽𝗹𝗲 : <code>4242424242424242|12|25|123</code></blockquote>"
+        "「❃」 <code>/co url cards</code> - Charge cards\n"
+        "「❃」 <code>/co url yes/no cards</code> - 3DS bypass option</blockquote>\n\n"
+        "<blockquote>「❃」 <code>/addproxy proxy</code> - Add proxy\n"
+        "「❃」 <code>/removeproxy proxy</code> - Remove proxy\n"
+        "「❃」 <code>/removeproxy all</code> - Remove all proxies\n"
+        "「❃」 <code>/proxy</code> - View your proxies\n"
+        "「❃」 <code>/proxy check</code> - Check proxy status</blockquote>\n\n"
+        "<blockquote>「❃」 Card Format : <code>cc|mm|yy|cvv</code>\n"
+        "「❃」 Example : <code>4242424242424242|12|25|123</code></blockquote>\n\n"
+        "<blockquote>「❃」 Proxy Formats :\n"
+        "    • <code>host:port:user:pass</code>\n"
+        "    • <code>user:pass@host:port</code>\n"
+        "    • <code>host:port</code></blockquote>"
     )
     await msg.answer(help_text, parse_mode=ParseMode.HTML)

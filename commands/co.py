@@ -178,7 +178,6 @@ async def _charge_bin(
     link_dead = False
     total_tried = 0
     check_interval = 5
-    last_update = time.perf_counter()
     seen_cards = set()
 
     while not charged_card and not link_dead:
@@ -202,33 +201,35 @@ async def _charge_bin(
                 link_dead = True
                 break
 
-        if (time.perf_counter() - last_update) > 2.0:
-            last_update = time.perf_counter()
-            charged = sum(1 for r in results if r['status'] == 'CHARGED')
-            declined = sum(1 for r in results if r['status'] == 'DECLINED')
-            three_ds = sum(1 for r in results if r['status'] in ('3DS', '3DS SKIP'))
-            errors = sum(1 for r in results if r['status'] in ('ERROR', 'FAILED'))
-            elapsed = round(time.perf_counter() - start_time, 1)
+        charged = sum(1 for r in results if r['status'] == 'CHARGED')
+        declined = sum(1 for r in results if r['status'] == 'DECLINED')
+        three_ds = sum(1 for r in results if r['status'] in ('3DS', '3DS SKIP'))
+        errors = sum(1 for r in results if r['status'] in ('ERROR', 'FAILED'))
+        elapsed = round(time.perf_counter() - start_time, 1)
 
-            last_card = f"{card['cc'][:6]}...{card['cc'][-4:]}"
+        card_display = result['card']
+        status_display = result['status']
+        resp_short = (result['response'] or '')[:60]
 
-            try:
-                await processing_msg.edit_text(
-                    f"<blockquote><code>BIN Attack {price_str}</code></blockquote>\n\n"
-                    f"<blockquote>「❃」 BIN : <code>{bin_str}</code>\n"
-                    f"「❃」 Proxy : <code>{proxy_display}</code>\n"
-                    f"「❃」 Bypass : <code>{bypass_str}</code>\n"
-                    f"「❃」 Tried : <code>{total_tried}</code>\n"
-                    f"「❃」 Last : <code>{last_card}</code></blockquote>\n\n"
-                    f"<blockquote>「❃」 Charged : <code>{charged}</code>\n"
-                    f"「❃」 Declined : <code>{declined}</code>\n"
-                    f"「❃」 3DS : <code>{three_ds}</code>\n"
-                    f"「❃」 Errors : <code>{errors}</code>\n"
-                    f"「❃」 Time : <code>{elapsed}s</code></blockquote>",
-                    parse_mode=ParseMode.HTML,
-                )
-            except Exception:
-                pass
+        try:
+            await processing_msg.edit_text(
+                f"<blockquote><code>BIN Attack {price_str}</code></blockquote>\n\n"
+                f"<blockquote>「❃」 BIN : <code>{bin_str}</code>\n"
+                f"「❃」 Proxy : <code>{proxy_display}</code>\n"
+                f"「❃」 Bypass : <code>{bypass_str}</code>\n"
+                f"「❃」 Tried : <code>{total_tried}</code></blockquote>\n\n"
+                f"<blockquote>「❃」 Card : <code>{card_display}</code>\n"
+                f"「❃」 Status : <code>{status_display}</code>\n"
+                f"「❃」 Response : <code>{resp_short}</code></blockquote>\n\n"
+                f"<blockquote>「❃」 Charged : <code>{charged}</code>\n"
+                f"「❃」 Declined : <code>{declined}</code>\n"
+                f"「❃」 3DS : <code>{three_ds}</code>\n"
+                f"「❃」 Errors : <code>{errors}</code>\n"
+                f"「❃」 Time : <code>{elapsed}s</code></blockquote>",
+                parse_mode=ParseMode.HTML,
+            )
+        except Exception:
+            pass
 
     total_time = round(time.perf_counter() - start_time, 2)
     charged_count = sum(1 for r in results if r['status'] == 'CHARGED')

